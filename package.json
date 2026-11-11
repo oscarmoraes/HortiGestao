@@ -1,0 +1,24 @@
+{
+  "name": "summer-fonseca-flv",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sistema de Gestão Inteligente de FLV (Hortifruti) — Supermercado Summer (Unidade Fonseca)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "lucide-vue-next": "^0.475.0",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.9",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "tailwindcss": "^4.0.9",
+    "vite": "^6.2.0"
+  }
+}

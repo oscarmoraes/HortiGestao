@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="hg-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00873a" />
+      <stop offset="100%" stop-color="#006b2c" />
+    </linearGradient>
+    <linearGradient id="hg-leaf" x1="16" y1="12" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7ffc97" />
+      <stop offset="100%" stop-color="#ffffff" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#hg-bg)" />
+  <!-- Sun / Freshness Accent Arc (Summer + AgroFresh) -->
+  <circle cx="46" cy="18" r="7" fill="#fd651e" />
+  <!-- Stylized Leaf -->
+  <path
+    d="M18 44C18 28 29 17 45 17C45 33 34 44 18 44Z"
+    fill="url(#hg-leaf)"
+  />
+  <path
+    d="M18 44C25 37 33 29 43 19"
+    stroke="#006b2c"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+  <!-- Crate Base Bar -->
+  <rect x="15" y="48" width="34" height="4.5" rx="2.25" fill="#ffffff" fill-opacity="0.92" />
+</svg>

@@ -1,0 +1,21 @@
+# Dependências e Build
+node_modules/
+dist/
+dist-ssr/
+
+# Segredos, Variáveis de Ambiente e Credenciais (NUNCA versionar)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+
+# Arquivos temporários, pacotes e logs
+*.log
+*.local
+*.zip
+.DS_Store
+.vercel/
+.supabase/
+supabase/.temp/
