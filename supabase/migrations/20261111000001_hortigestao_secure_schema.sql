@@ -144,26 +144,58 @@ create policy "auth_only_flv_products"
   on public.flv_products
   for all
   to authenticated
-  using ((select auth.uid()) is not null and (select auth.role()) = 'authenticated')
-  with check ((select auth.uid()) is not null and (select auth.role()) = 'authenticated');
+  using (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  )
+  with check (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  );
 
 create policy "auth_only_flv_movements"
   on public.flv_movements
   for all
   to authenticated
-  using ((select auth.uid()) is not null and (select auth.role()) = 'authenticated')
-  with check ((select auth.uid()) is not null and (select auth.role()) = 'authenticated');
+  using (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  )
+  with check (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  );
 
 create policy "auth_only_flv_orders"
   on public.flv_orders
   for all
   to authenticated
-  using ((select auth.uid()) is not null and (select auth.role()) = 'authenticated')
-  with check ((select auth.uid()) is not null and (select auth.role()) = 'authenticated');
+  using (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  )
+  with check (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  );
 
 create policy "auth_only_flv_order_items"
   on public.flv_order_items
   for all
   to authenticated
-  using ((select auth.uid()) is not null and (select auth.role()) = 'authenticated')
-  with check ((select auth.uid()) is not null and (select auth.role()) = 'authenticated');
+  using (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  )
+  with check (
+    (select auth.uid()) is not null
+    and (select auth.role()) = 'authenticated'
+    and lower((select auth.jwt() ->> 'email')) = 'oscarmoraes@gmail.com'
+  );

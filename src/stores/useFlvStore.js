@@ -17,6 +17,16 @@ export const HORTI_LOGO_URL = './logo-hortigestao.svg'
 export const SUMMER_LOGO_URL = './summer-logo-store.png'
 export const PROFILE_AVATAR_URL = './images/avatar.jpg'
 
+const IMAGE_BY_NAME = {
+  'tomate italiano': './images/tomate.jpg',
+  'alface crespa': './images/alface.jpg',
+  'banana prata': './images/banana.jpg',
+  'morango bandeja': './images/morango.jpg',
+  'cenoura nantes': './images/cenoura.jpg',
+  'mamão formosa': './images/mamao.jpg',
+  'mamao formosa': './images/mamao.jpg',
+}
+
 export const INITIAL_STITCH_PRODUCTS = [
   {
     id: '1',
@@ -170,13 +180,63 @@ export const INITIAL_LOSSES = [
   },
 ]
 
+function mapDbRowToProduct(row) {
+  const catMap = {
+    frutas: 'Fruta',
+    verduras: 'Verdura',
+    legumes: 'Legume',
+  }
+  const catLabel = catMap[row.category] || 'Hortifrúti'
+  const days = Number(row.shelf_life_days ?? 5)
+  const status = row.status || (days <= 0 ? 'critical' : days <= 2 ? 'warning' : 'ok')
+  const statusBadge =
+    status === 'critical'
+      ? 'Vence Hoje'
+      : status === 'warning'
+        ? `${days} dia(s) restante(s)`
+        : 'OK'
+  const lowerName = (row.name || '').trim().toLowerCase()
+
+  return {
+    id: String(row.id),
+    name: row.name,
+    emoji: row.emoji || '🥬',
+    category: row.category || 'legumes',
+    categoryLabel: catLabel,
+    qty: Number(row.current_stock ?? 0),
+    unit: row.unit || 'kg',
+    unitLabel:
+      row.unit === 'un' && lowerName.includes('alface')
+        ? 'maços'
+        : row.unit === 'un' && lowerName.includes('morango')
+          ? 'bandejas'
+          : row.unit === 'cx'
+            ? 'caixas'
+            : row.unit || 'kg',
+    costPrice: Number(row.cost_price ?? 0),
+    salePrice: Number(row.sale_price ?? 0),
+    shelfLifeDays: days,
+    status,
+    statusBadge,
+    subtitle: `${catLabel} • Validade: ${days} dia(s)`,
+    lotCode: row.lot_code || '#3842',
+    image: IMAGE_BY_NAME[lowerName] || './images/tomate.jpg',
+  }
+}
+
 export const useFlvStore = defineStore('flv', () => {
   const products = ref([])
   const losses = ref([])
   const orderSelection = ref({})
   const isSupabaseConnected = ref(false)
   const authUser = ref(null)
+  const isAuthReady = ref(false)
   const toast = ref({ show: false, title: '', desc: '', icon: 'check_circle' })
+
+  const hasSupabaseEndpoint = computed(() => {
+    const cfg = getSavedSupabaseConfig()
+    return Boolean(cfg.url && cfg.anonKey)
+  })
 
   function showToast(title, desc = '', icon = 'check_circle') {
     toast.value = { show: true, title, desc, icon }
@@ -199,17 +259,48 @@ export const useFlvStore = defineStore('flv', () => {
     localStorage.setItem(LS_ORDER_SEL_KEY, JSON.stringify(orderSelection.value))
   }
 
-  async function refreshAuthSession() {
+  async function syncFromSupabase() {
     const client = getSupabaseClient()
-    if (!client) {
-      isSupabaseConnected.value = false
-      authUser.value = null
-      return null
-    }
     const user = await getAuthenticatedSupabaseUser()
-    authUser.value = user
-    isSupabaseConnected.value = !!user
-    return user
+    if (!client || !user?.id) return
+
+    const { data, error } = await client
+      .from('flv_products')
+      .select('*')
+      .order('created_at', { ascending: true })
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      products.value = data.map(mapDbRowToProduct)
+      const currentSel = orderSelection.value || {}
+      if (Object.keys(currentSel).length === 0) {
+        const nextSel = {}
+        products.value.slice(0, 3).forEach((p) => {
+          nextSel[p.id] = { selected: true, orderQty: 4, orderUnit: 'cx', calcNote: '' }
+        })
+        orderSelection.value = nextSel
+      }
+      saveState()
+    }
+  }
+
+  async function refreshAuthSession() {
+    try {
+      const client = getSupabaseClient()
+      if (!client) {
+        isSupabaseConnected.value = false
+        authUser.value = null
+        return null
+      }
+      const user = await getAuthenticatedSupabaseUser()
+      authUser.value = user
+      isSupabaseConnected.value = !!user
+      if (user) {
+        await syncFromSupabase()
+      }
+      return user
+    } finally {
+      isAuthReady.value = true
+    }
   }
 
   function initStore() {
@@ -265,6 +356,7 @@ export const useFlvStore = defineStore('flv', () => {
     }
     authUser.value = user
     isSupabaseConnected.value = true
+    await syncFromSupabase()
     showToast('Sessão autenticada!', `Acesso liberado para ${user.email}`)
     return { ok: true, error: null }
   }
@@ -276,15 +368,24 @@ export const useFlvStore = defineStore('flv', () => {
     showToast('Sessão encerrada', 'Acesso em nuvem bloqueado para não autenticados.')
   }
 
-  function updateStock(productId, delta) {
+  async function updateStock(productId, delta) {
     const item = products.value.find((p) => p.id === productId)
     if (!item) return
     item.qty = Math.max(0, Number((Number(item.qty) + delta).toFixed(1)))
     saveState()
     showToast(`Estoque atualizado: ${item.qty} ${item.unitLabel}`)
+
+    const client = getSupabaseClient()
+    const user = await getAuthenticatedSupabaseUser()
+    if (client && user?.id && productId.length > 10) {
+      await client
+        .from('flv_products')
+        .update({ current_stock: item.qty, updated_at: new Date().toISOString() })
+        .eq('id', productId)
+    }
   }
 
-  function setExactStock(productId, newQty, calcSummary = '') {
+  async function setExactStock(productId, newQty, calcSummary = '') {
     const item = products.value.find((p) => p.id === productId)
     if (!item) return
     item.qty = Math.max(0, Number(Number(newQty).toFixed(2)))
@@ -296,6 +397,15 @@ export const useFlvStore = defineStore('flv', () => {
       `Peso aplicado em ${item.name}: ${item.qty} ${item.unitLabel}`,
       calcSummary || 'Saldo atualizado pela calculadora'
     )
+
+    const client = getSupabaseClient()
+    const user = await getAuthenticatedSupabaseUser()
+    if (client && user?.id && productId.length > 10) {
+      await client
+        .from('flv_products')
+        .update({ current_stock: item.qty, updated_at: new Date().toISOString() })
+        .eq('id', productId)
+    }
   }
 
   function toggleOrderSelect(product) {
@@ -365,6 +475,33 @@ export const useFlvStore = defineStore('flv', () => {
       image: INITIAL_STITCH_PRODUCTS[0].image,
     }
 
+    const client = getSupabaseClient()
+    const verifiedUser = await getAuthenticatedSupabaseUser()
+    if (client && verifiedUser?.id) {
+      const { data } = await client
+        .from('flv_products')
+        .insert([
+          {
+            name: created.name,
+            emoji: created.emoji,
+            category: created.category,
+            unit: created.unit,
+            current_stock: created.qty,
+            cost_price: created.costPrice,
+            sale_price: created.salePrice,
+            shelf_life_days: created.shelfLifeDays,
+            lot_code: created.lotCode,
+            status: created.status,
+            created_by: verifiedUser.id,
+          },
+        ])
+        .select('*')
+        .single()
+      if (data?.id) {
+        created.id = String(data.id)
+      }
+    }
+
     products.value.unshift(created)
 
     if (includeInOrder) {
@@ -377,32 +514,10 @@ export const useFlvStore = defineStore('flv', () => {
     }
 
     saveState()
-
-    // Sincroniza no Supabase SOMENTE se houver usuário autenticado verificado via getUser()
-    const client = getSupabaseClient()
-    const verifiedUser = await getAuthenticatedSupabaseUser()
-    if (client && verifiedUser?.id) {
-      await client.from('flv_products').insert([
-        {
-          name: created.name,
-          emoji: created.emoji,
-          category: created.category,
-          unit: created.unit,
-          current_stock: created.qty,
-          cost_price: created.costPrice,
-          sale_price: created.salePrice,
-          shelf_life_days: created.shelfLifeDays,
-          lot_code: created.lotCode,
-          status: created.status,
-          created_by: verifiedUser.id,
-        },
-      ])
-    }
-
     return created
   }
 
-  function registerWriteOff({ productId, qty, reasonKey, destination, notes }) {
+  async function registerWriteOff({ productId, qty, reasonKey, destination, notes }) {
     const prod = products.value.find((p) => p.id === productId)
     if (!prod) return
 
@@ -437,6 +552,29 @@ export const useFlvStore = defineStore('flv', () => {
 
     saveState()
     showToast('Baixa concluída!', `Estoque de ${prod.name} atualizado.`, 'done_all')
+
+    const client = getSupabaseClient()
+    const user = await getAuthenticatedSupabaseUser()
+    if (client && user?.id && productId.length > 10) {
+      await client
+        .from('flv_products')
+        .update({ current_stock: prod.qty, updated_at: new Date().toISOString() })
+        .eq('id', productId)
+      await client.from('flv_movements').insert([
+        {
+          product_id: productId,
+          movement_type: 'DESCARTE',
+          gross_weight: deduct,
+          net_quantity: deduct,
+          stock_after: prod.qty,
+          waste_reason: rMeta.title,
+          destination,
+          unit_cost_at_time: prod.salePrice || 0,
+          notes: notes || '',
+          created_by: user.id,
+        },
+      ])
+    }
   }
 
   const totalStockKg = computed(() =>
@@ -535,6 +673,8 @@ export const useFlvStore = defineStore('flv', () => {
     orderSelection,
     isSupabaseConnected,
     authUser,
+    isAuthReady,
+    hasSupabaseEndpoint,
     toast,
     totalStockKg,
     totalEstimatedValue,
@@ -548,6 +688,7 @@ export const useFlvStore = defineStore('flv', () => {
     configureSupabase,
     loginSupabase,
     logoutSupabase,
+    syncFromSupabase,
     getSavedSupabaseConfig,
     updateStock,
     setExactStock,

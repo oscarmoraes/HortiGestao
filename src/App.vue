@@ -362,10 +362,125 @@ async function handleSendWhatsAppDirect() {
     'Lista copiada e formatada para envio rápido!'
   )
 }
+
+// ============================================================================
+// TELA DE AUTENTICAÇÃO OBRIGATÓRIA (ZERO ACESSO NÃO AUTENTICADO)
+// ============================================================================
+const gateEmail = ref('oscarmoraes@gmail.com')
+const gatePassword = ref('')
+const gateError = ref('')
+const gateLoading = ref(false)
+
+async function handleGateLogin() {
+  gateError.value = ''
+  if (!gateEmail.value.trim() || !gatePassword.value) {
+    gateError.value = 'Informe seu e-mail e senha autorizados.'
+    return
+  }
+  gateLoading.value = true
+  try {
+    const res = await store.loginSupabase(gateEmail.value, gatePassword.value)
+    if (!res.ok) {
+      gateError.value = res.error || 'Acesso negado.'
+    } else {
+      gatePassword.value = ''
+    }
+  } finally {
+    gateLoading.value = false
+  }
+}
 </script>
 
 <template>
-  <div class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col antialiased">
+  <!-- ========================================================================
+       PORTÃO DE AUTENTICAÇÃO SUPABASE AUTH (BLOQUEIA NÃO AUTENTICADOS)
+       ======================================================================== -->
+  <div
+    v-if="store.hasSupabaseEndpoint && !store.authUser"
+    class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col items-center justify-center px-4 antialiased"
+  >
+    <div
+      class="w-full max-w-sm bg-surface-container-lowest rounded-2xl p-6 shadow-md border border-outline-variant/30 space-y-5"
+    >
+      <div class="flex items-center gap-3">
+        <img
+          alt="Logo Supermercado Summer"
+          class="h-11 w-11 rounded-xl object-contain bg-surface-container p-1 shadow-sm border border-outline-variant/20"
+          :src="SUMMER_LOGO_URL"
+        />
+        <img
+          alt="Logo HortiGestão"
+          class="h-10 w-10 rounded-xl object-contain shadow-sm"
+          :src="HORTI_LOGO_URL"
+        />
+        <div>
+          <h1 class="font-headline-md text-headline-md text-primary leading-tight">
+            HortiGestão
+          </h1>
+          <p class="font-label-sm text-label-sm text-on-surface-variant">
+            Supermercado Summer • Unidade Fonseca
+          </p>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">
+          verified_user
+        </span>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+          Acesso restrito a usuário autenticado. Nenhuma consulta ou operação é permitida sem login.
+        </p>
+      </div>
+
+      <form class="space-y-3.5" @submit.prevent="handleGateLogin">
+        <div>
+          <label class="block font-label-md text-label-md text-on-surface mb-1">
+            E-mail Autorizado
+          </label>
+          <input
+            v-model="gateEmail"
+            type="email"
+            required
+            autocomplete="username"
+            placeholder="oscarmoraes@gmail.com"
+            class="w-full h-12 px-4 rounded-xl bg-surface-container font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label class="block font-label-md text-label-md text-on-surface mb-1">
+            Senha
+          </label>
+          <input
+            v-model="gatePassword"
+            type="password"
+            required
+            autocomplete="current-password"
+            placeholder="Digite sua senha"
+            class="w-full h-12 px-4 rounded-xl bg-surface-container font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <p v-if="gateError" class="font-label-md text-label-md text-error">
+          {{ gateError }}
+        </p>
+
+        <button
+          type="submit"
+          :disabled="gateLoading"
+          class="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-2 active:scale-[0.99] transition-all disabled:opacity-50"
+        >
+          <span class="material-symbols-outlined text-[20px]">lock_open</span>
+          <span>{{ gateLoading ? 'Autenticando...' : 'Entrar no HortiGestão' }}</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div
+    v-else
+    class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col antialiased"
+  >
     <!-- ======================================================================
          HEADER FIXO (IDÊNTICO AO STITCH HORTIGESTÃO)
          ====================================================================== -->
